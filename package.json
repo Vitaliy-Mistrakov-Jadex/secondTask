@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.335.0",
+    "@aws-sdk/lib-dynamodb": "^3.335.0",
+    "aws-sdk": "^2.1378.0",
+    "csv-parser": "^3.0.0",
+    "csvtojson": "^2.0.10",
+    "joi": "^17.9.2",
+    "serverless-dotenv-plugin": "^6.0.0",
+    "serverless-dynamodb-local": "^0.2.40",
+    "serverless-step-functions": "^3.13.1"
+  }
+}
