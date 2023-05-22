@@ -29,6 +29,7 @@ module.exports.handler = async (event) => {
             console.log("Users created: ", response);
         } catch (err) {
             console.error(err);
+            ;
         }
     }
 };
