@@ -1,56 +1,50 @@
 const AWS = require('aws-sdk');
 const dynamoDB = new AWS.DynamoDB({apiVersion: '2012-08-10'});
-const MAX_RETRY_ATTEMPTS = 3;
-const BACKOFF_TIME_MS = 2000;
 
-module.exports.handler = async (event) => {
-    const records = event.Records;
+const chunkSize = 25;
 
-    // Extract user data from the SQS records
-    const users = records.map((record) => JSON.parse(record.body));
-    console.log("users----->", users)
+const handleUsers = async (users, statement) => {
+    let usersToUpdate = [];
 
-    // Split users into chunks of 25
+    for (let chunk of chunkArray(users, chunkSize)) {
+        const params = {
+            Statements: chunk.map(user => ({
+                Statement: statement(user)
+            })),
+        };
 
-    for (let i = 0; i < users.length; i += 25) {
-        const userChunks = [];
-        userChunks.push(users.slice(i, i + 25));
+        try {
+            const response = await dynamoDB.batchExecuteStatement(params).promise();
 
-        console.log("userChunks.length--->", userChunks.length)
-        userChunks.push(users.slice(i, i + 25));
-
-        console.log("userChunks--->", userChunks)
-        for (let userChunk of userChunks) {
-            const params = {
-                Statements: userChunk.map(user => (
-                    {
-                        Statement: `INSERT INTO UsersBulkScriptVitaliyJadex VALUE {'UserAccountId': '${user.userId}', 'LastUpdated': '${new Date().toISOString()}'}`,
-                    }
-
-
-                )),
-            };
-
-            try {
-                console.log("params--->", params)
-                const response = await dynamoDB.batchExecuteStatement(params).promise();
-
-
-                response.Responses.forEach((x) => {
-                    console.log(x.Error.Code)//'DuplicateItem'
-                })
-                console.log("Users created: ", response);
-            } catch (err) {
-                console.error(err);
-
-            }
+            response.Responses.forEach((res, idx) => {
+                if (res.Error && res.Error.Code === 'DuplicateItem') {
+                    usersToUpdate.push(chunk[idx]);
+                }
+            });
+        } catch (err) {
+            console.error(err);
         }
     }
 
-
+    return usersToUpdate;
 };
 
+const chunkArray = (array, size) => {
+    const chunks = [];
+    for (let i = 0; i < array.length; i += size) {
+        chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
+};
 
-const updateUsers = async (users) => {
-    console.log("updateUsers users--------->", users)
-}
+module.exports.handler = async (event) => {
+    const users = event.Records.map((record) => JSON.parse(record.body));
+
+    const insertStatement = (user) => `INSERT INTO UsersBulkScriptVitaliyJadex VALUE {'UserAccountId': '${user.userId}', 'LastUpdated': '${new Date().toISOString()}'}`;
+    let usersToUpdate = await handleUsers(users, insertStatement);
+
+    if (usersToUpdate.length > 0) {
+        const updateStatement = (user) => `UPDATE UsersBulkScriptVitaliyJadex SET LastUpdated = '111111' WHERE UserAccountId = '${user.userId}'`;
+        await handleUsers(usersToUpdate, updateStatement);
+    }
+};
