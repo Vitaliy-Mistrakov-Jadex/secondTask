@@ -76,24 +76,73 @@ const validateArray = (arr) => {
 }
 
 
+// const sendItemsToSqs = async (items) => {
+//
+//
+//     for (let i = 0; i < items.length;) {
+//         let params = {
+//             QueueUrl: process.env.SQS_QUEUE_URL,
+//             Entries: [],
+//         };
+//
+//         for (let j = 0; j < 10 && i < items.length; j++, i++) {
+//             params.Entries.push({
+//                 Id: i.toString(),
+//                 MessageBody: JSON.stringify({
+//                     userId: items[i].item.UserAccountId,
+//                     field: 'OptedInThirtyDaysCancellation',
+//                     value: items[i].item.Preferences.OptedInThirtyDaysCancellation,
+//                 }),
+//             });
+//         }
+//
+//         console.log("sqs.sendMessageBatch(params).+++++", params.Entries);
+//
+//         await sqs.sendMessageBatch(params).promise();
+//     }
+//
+//
+// };
+
+
 const sendItemsToSqs = async (items) => {
+    let successCount = 0;
+    const messageBatchSize = 50
+    const awsBatchSize = 10
+
+    items = items.map((item) => {
+        return {
+
+            userId: item.item.UserAccountId,
+            field: 'OptedInThirtyDaysCancellation',
+            // LastUpdated: item.item.LastUpdated,
+            //Preferences: item.item.Preferences,
+            value: false
+            // MarketingFlags: item.item.MarketingFlags
+        }
+    })
+
+    const messageBatches = chunk(items, messageBatchSize); // масиви чанків масивів
 
 
-    for (let i = 0; i < items.length;) {
-        let params = {
+    console.log("messageBatches[]----->", messageBatches[0])
+    console.log("messageBatches----->", messageBatches)
+
+    const sqsMessagePayloads = messageBatches.map((batch, index) => {
+        console.log("batch----->", batch)
+        return {
+            Id: index.toString(),
+            MessageBody: JSON.stringify(batch),
+        }
+
+    });
+    console.log("sqsMessagePayloads---->>>", sqsMessagePayloads)
+
+    for (let sqsBatchPayload of chunk(sqsMessagePayloads, awsBatchSize)) {//2 чанка  1) 200 2)1
+
+        const params = {
             QueueUrl: process.env.SQS_QUEUE_URL,
-            Entries: [],
-        };
-
-        for (let j = 0; j < 10 && i < items.length; j++, i++) {
-            params.Entries.push({
-                Id: i.toString(),
-                MessageBody: JSON.stringify({
-                    userId: items[i].item.UserAccountId,
-                    field: 'OptedInThirtyDaysCancellation',
-                    value: items[i].item.Preferences.OptedInThirtyDaysCancellation,
-                }),
-            });
+            Entries: sqsBatchPayload,
         }
 
         console.log("sqs.sendMessageBatch(params).+++++", params.Entries);
@@ -101,56 +150,15 @@ const sendItemsToSqs = async (items) => {
         await sqs.sendMessageBatch(params).promise();
     }
 
-
 };
 
-//
-//
-// const sendItemsToSqs = async (items) => {
-//     let successCount = 0;
-//     const messageBatchSize = 200
-//     const awsBatchSize = 10
-//
-//     const messageBatches = chunk(items, messageBatchSize);
-//
-//     console.log("messageBatches----->", messageBatches[0])
-//
-//     const sqsMessagePayloads = messageBatches.map(batch => {
-//         console.log("batch----->", batch)
-//         return batch.map(item => {
-//                 console.log("item----->", item)
-//                 return {
-//                     Id: item.item.UserAccountId,
-//                     MessageBody: JSON.stringify({
-//                         userId: item.item.UserAccountId,
-//                         field: 'OptedInThirtyDaysCancellation',
-//                     }),
-//                 }
-//             }
-//         );
-//     });
-//     console.log("sqsMessagePayloads---->>>", sqsMessagePayloads)
-//
-//     for (let sqsBatchPayload of chunk(sqsMessagePayloads, awsBatchSize)) {
-//         for (let batch of sqsBatchPayload) {
-//             const params = {
-//                 Entries: batch,
-//                 QueueUrl: process.env.SQS_QUEUE_URL,
-//             };
-//             await sqs.sendMessageBatch(params).promise();
-//             successCount += batch.length;
-//         }
-//     }
-//     return successCount;
-// };
-//
-// const chunk = (array, size) => {
-//     let results = [];
-//     while (array.length) {
-//         results.push(array.splice(0, size));
-//     }
-//     return results;
-// };
+const chunk = (array, size) => {
+    let results = [];
+    while (array.length) {
+        results.push(array.splice(0, size));
+    }
+    return results;
+};
 
 
 // const sendItemsToSqs = async (items) => {
