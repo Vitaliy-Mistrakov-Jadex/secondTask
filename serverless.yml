@@ -46,6 +46,10 @@ provider:
 
 resources:
   Resources:
+    DeadLetterQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: bulk-script-Vitaliy-Jadex-sqs-dlq
     BulkScriptVitaliyJadexS3Bucket:
       Type: AWS::S3::Bucket
       Properties:
@@ -100,10 +104,23 @@ functions:
       DYNAMODB_TABLE: !Ref UsersBulkScriptVitaliyJadex
       MAX_RETRY_ATTEMPTS: 3
       BACKOFF_TIME_MS: 2000
+      QUEUE_URL:
+        Fn::Join:
+          - ""
+          - - "https://sqs."
+            - Ref: AWS::Region
+            - ".amazonaws.com/"
+            - Ref: AWS::AccountId
+            - "/"
+            - Fn::GetAtt: [ DeadLetterQueue, QueueName ]
+    deadLetter:
+      targetArn:
+        GetResourceArn: DeadLetterQueue
     events:
       - sqs:
           arn:
             Fn::GetAtt: [ BulkScriptVitaliyJadexSqsQueue, Arn ]
+
 
 
 
