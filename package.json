@@ -2,6 +2,7 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.335.0",
     "@aws-sdk/lib-dynamodb": "^3.335.0",
+    "@jest/globals": "^29.5.0",
     "aws-sdk": "^2.1378.0",
     "csv-parser": "^3.0.0",
     "csvtojson": "^2.0.10",
@@ -9,5 +10,12 @@
     "serverless-dotenv-plugin": "^6.0.0",
     "serverless-dynamodb-local": "^0.2.40",
     "serverless-step-functions": "^3.13.1"
+  },
+  "devDependencies": {
+    "@babel/preset-typescript": "^7.21.5",
+    "jest": "^29.5.0"
+  },
+  "scripts": {
+    "test": "jest"
   }
 }

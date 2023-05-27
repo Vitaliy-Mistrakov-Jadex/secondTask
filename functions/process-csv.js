@@ -1,11 +1,10 @@
 const AWS = require('aws-sdk');
-const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const s3 = new AWS.S3();
 const csvtojson = require('csvtojson');
 const Joi = require('joi');
 const sqs = new AWS.SQS();
 
-module.exports.handler = async (event, ctx, callback) => {
+const handler = async (event, ctx, callback) => {
     const s3Record = event.Records[0].s3;
     const bucketName = s3Record.bucket.name;
     const objectKey = s3Record.object.key;
@@ -19,11 +18,13 @@ module.exports.handler = async (event, ctx, callback) => {
     try {
 
         const json = await readCsvFromS3(s3Params)
-
-        console.log(' validateArray(json)', validateArray(json));
+        console.log('json', json);
 
 
         const validatedItems = validateArray(json)
+
+        console.log(' validateArray(json)', validatedItems);
+
 
         const invalidItems = validatedItems.filter((item) => item.error);
         console.log('Invalid items:', invalidItems);
@@ -48,6 +49,7 @@ module.exports.handler = async (event, ctx, callback) => {
 
 const readCsvFromS3 = async (params) => {
     const {Body} = await s3.getObject(params).promise();
+    console.log("Body", Body)
     return csvtojson().fromString(Body.toString());
 };
 
@@ -76,49 +78,18 @@ const validateArray = (arr) => {
 }
 
 
-// const sendItemsToSqs = async (items) => {
-//
-//
-//     for (let i = 0; i < items.length;) {
-//         let params = {
-//             QueueUrl: process.env.SQS_QUEUE_URL,
-//             Entries: [],
-//         };
-//
-//         for (let j = 0; j < 10 && i < items.length; j++, i++) {
-//             params.Entries.push({
-//                 Id: i.toString(),
-//                 MessageBody: JSON.stringify({
-//                     userId: items[i].item.UserAccountId,
-//                     field: 'OptedInThirtyDaysCancellation',
-//                     value: items[i].item.Preferences.OptedInThirtyDaysCancellation,
-//                 }),
-//             });
-//         }
-//
-//         console.log("sqs.sendMessageBatch(params).+++++", params.Entries);
-//
-//         await sqs.sendMessageBatch(params).promise();
-//     }
-//
-//
-// };
-
-
 const sendItemsToSqs = async (items) => {
     let successCount = 0;
     const messageBatchSize = 50
     const awsBatchSize = 10
+
 
     items = items.map((item) => {
         return {
 
             userId: item.item.UserAccountId,
             field: 'OptedInThirtyDaysCancellation',
-            // LastUpdated: item.item.LastUpdated,
-            //Preferences: item.item.Preferences,
             value: false
-            // MarketingFlags: item.item.MarketingFlags
         }
     })
 
@@ -138,8 +109,8 @@ const sendItemsToSqs = async (items) => {
     });
     console.log("sqsMessagePayloads---->>>", sqsMessagePayloads)
 
-    for (let sqsBatchPayload of chunk(sqsMessagePayloads, awsBatchSize)) {//2 чанка  1) 200 2)1
 
+    for (let sqsBatchPayload of chunk(sqsMessagePayloads, awsBatchSize)) {
         const params = {
             QueueUrl: process.env.SQS_QUEUE_URL,
             Entries: sqsBatchPayload,
@@ -147,7 +118,13 @@ const sendItemsToSqs = async (items) => {
 
         console.log("sqs.sendMessageBatch(params).+++++", params.Entries);
 
-        await sqs.sendMessageBatch(params).promise();
+        try {
+            await sqs.sendMessageBatch(params).promise();
+
+        } catch (e) {
+            console.error('Error sending SQS batch', e);
+
+        }
     }
 
 };
@@ -160,40 +137,10 @@ const chunk = (array, size) => {
     return results;
 };
 
-
-// const sendItemsToSqs = async (items) => {
-//     const messageBatchSize = 10;
-//     const awsBatchSize = 200;
-//
-//     let messageBatches = [];
-//     for (let i = 0; i < items.length; i += messageBatchSize) {
-//         messageBatches.push(items.slice(i, i + messageBatchSize));
-//     }
-//     while (messageBatches.length > 0) {
-//
-//         let batchesToSend = messageBatches.splice(0, awsBatchSize);
-//
-//         for (let i = 0; i < batchesToSend.length; i++) {
-//             const params = {
-//                 QueueUrl: process.env.SQS_QUEUE_URL,
-//                 Entries: batchesToSend[i].map((messageBatch, idx) => ({
-//                     Id: String(i * awsBatchSize + idx),
-//                     MessageBody: JSON.stringify({
-//                         userId: messageBatch.UserAccountId,
-//                         field: 'OptedInThirtyDaysCancellation',
-//                         value: messageBatch.item.Preferences.OptedInThirtyDaysCancellation,
-//                     }),
-//                 })),
-//             };
-//
-//             try {
-//                 await sqs.sendMessageBatch(params).promise();
-//                 console.log(`Batch ${i} sent successfully.`);
-//             } catch (error) {
-//                 console.error(`Failed to send batch ${i}.`, error);
-//             }
-//         }
-//     }
-//
-//
-// };
+module.exports = {
+    readCsvFromS3,
+    validateArray,
+    sendItemsToSqs,
+    handler
+    // the rest of your functions
+}
