@@ -138,7 +138,7 @@ const retryFailed = async (failedUsers) => {
 
 
                 console.log("nextFailedUsers", nextFailedUsers)
-                //await wait(retryCount * BACKOFF_TIME_MS);
+                await wait(retryCount * BACKOFF_TIME_MS);
 
             } catch (err) {
                 console.error("err=-=-=-=-=-=-=-=-=", err);
