@@ -28,20 +28,18 @@ describe('Testing the lambda functions', () => {
         const params = {Bucket: 'bucket-name', Key: 'key'};
         const result = await readCsvFromS3(params);
 
-        // assert on the result
         expect(result).toEqual([]);
     });
 
     test('validateArray should validate the array of items', () => {
         const result = validateArray(outputReadFromCsv);
 
-        // assert on the result
         expect(result).toEqual(validatedItems);
     });
 
     test('sendItemsToSqs should send items to SQS', async () => {
 
-       
+
     });
 
 });

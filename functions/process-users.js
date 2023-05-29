@@ -34,14 +34,15 @@ const handleUsers = async (users, statement) => {
                     usersToUpdate.push(chunk[idx]);
                 }
                 if (res.Error && res.Error.Code !== 'DuplicateItem') {
-                    failedUsers.push(chunk[idx]);
+                    failedUsers.push({
+                        userData: chunk[idx],
+                        statement: statement
+                    });
 
                 }
             });
         } catch (err) {
             console.error("err", err);
-            // Произошла ошибка, увеличиваем счетчик повторной попытки и повторяем
-            console.log("retryCount++", retryCount)
         }
     }
 
@@ -58,97 +59,167 @@ const chunkArray = (array, size) => {
     return chunks;
 };
 
+const insertStatement = (user) => {
 
-module.exports.handler = async (event) => {
+    console.log("userstatement: ", user);
 
-    console.log("event--->", event)
-    const users = event.Records.map((record) => JSON.parse(record.body));
-    console.log("users---->", users)
+    return `INSERT INTO UsersBulkScriptVitaliyJadex VALUE {'UserAccountId': '${user.userId}', 'LastUpdated': '${new Date().toISOString()}'}`
 
-    const insertStatement = (user) => {
+};
 
-        console.log("userstatement: ", user);
+const updateStatement = (user) => {
+    return `UPDATE UsersBulkScriptVitaliyJadex SET LastUpdated = '111111' WHERE UserAccountId = '${user.userId}'`;
 
-        return `INSERT INTO UsersBulkScriptVitaliyJadex VALUE {'UserAccountId': '${user.userId}', 'LastUpdated': '${new Date().toISOString()}'}`
+}
 
-    };
-    console.log("insertStatement--->", insertStatement)
 
+const insertUsers = async (users) => {
 
     let usersToUpdate = []
     let failedUsers = []
-
-
     for (const user of users) {
         console.log("usersToUpdate.push(await handleUsers(user, insertStatement))", user)
         const result = await handleUsers(user, insertStatement)
         usersToUpdate.push(result.usersToUpdate)
         failedUsers.push(result.failedUsers)
 
+    }
+    return {
+        usersToUpdate,
+        failedUsers
+    }
+}
+
+const updateUsers = async (usersToUpdate) => {
+    let failedUpdate = []
+
+    for (const user of usersToUpdate) {
+        console.log("usersToUpdate.push(await handleUsers(user, updateStatement))", user)
+        const result = await handleUsers(user, updateStatement)
+        failedUpdate.push(result.failedUsers)
 
     }
+    return {
+        failedUpdate
+    }
+}
+
+const retryFailed = async (failedUsers) => {
+    console.log("CALLxs")
+    let retryCount = 0
+    let failed = []
+
+
+    let iteration = 0
+
+    while (failedUsers.length > 0 && retryCount < MAX_RETRY_ATTEMPTS) {
+        iteration++;
+        let nextFailedUsers = [];
+        for (let user of chunkArray(failedUsers, chunkSize)) {
+            const params = {
+                Statements: user.map(user => {
+                    return {
+                        Statement: user.statement(user.userData)
+                    }
+                }),
+            };
+
+            try {
+                // console.log("params.Statements--->", params.Statements)
+                const response = await dynamoDB.batchExecuteStatement(params).promise();
+
+
+                response.Responses.forEach((res, idx) => {
+                    if (res.Error && res.Error.Code !== null) {
+                        nextFailedUsers.push(user[idx]);
+                    }
+
+                });
+
+
+                console.log("nextFailedUsers", nextFailedUsers)
+                //await wait(retryCount * BACKOFF_TIME_MS);
+
+            } catch (err) {
+                console.error("err=-=-=-=-=-=-=-=-=", err);
+            }
+        }
+
+        retryCount = retryCount + 1;
+
+        failedUsers = nextFailedUsers;
+
+
+        console.log("iteration", iteration)
+    }
+    console.log("finifsj while", process.env.DLQ)
+    if (failedUsers.length > 0) {
+        failed.push(...failedUsers);
+    }
+
+
+    const dlqParams = {
+        MessageBody: JSON.stringify(failed.map((item) => {
+            return {userId: item.userData.userId}
+        })),
+        QueueUrl: process.env.DLQ
+    };
+
+    console.log("dlqParams", dlqParams)
+
+    await sqs.sendMessage(dlqParams).promise();
+    console.log("Failed users after all retries: ", failed);
+
+}
+
+const handler = async (event) => {
+
+    console.log("event--->", event)
+    const users = event.Records.map((record) => JSON.parse(record.body));
+    console.log("users---->", users)
+
+    let usersToUpdate = []
+    let failedUsers = []
+
+    const insertResult = await insertUsers(users)
+
+    console.log("insertResult.failedUsers", insertResult.failedUsers)
+    console.log("insertResult.usersToUpdate", insertResult.failedUsers)
+
+
+    usersToUpdate.push(...insertResult.usersToUpdate)
+    failedUsers.push(...insertResult.failedUsers)
 
     console.log("usersToUpdate", usersToUpdate)
     if (usersToUpdate.length > 0) {
-        const updateStatement = (user) => `UPDATE UsersBulkScriptVitaliyJadex SET LastUpdated = '111111' WHERE UserAccountId = '${user.userId}'`;
 
 
-        for (const user of usersToUpdate) {
-            console.log("usersToUpdate.push(await handleUsers(user, updateStatement))", user)
-            await handleUsers(user, updateStatement)
-
-        }
-    }
+        const updateRes = await updateUsers(usersToUpdate)
+        console.log("updateRes", updateRes.failedUpdate)
+        failedUsers.push(...updateRes.failedUpdate)
 
 
-    console.log("failedUsers", failedUsers)
-    if (failedUsers.length > 0) {
-        let retryCount = 0
-        let failed = []
-        const updateStatement = (user) => `UPDATE UsersBulkScriptVitaliyJadex SET LastUpdated = '111111' WHERE UserAccountId = '${user.userId}'`;
-
-        while (retryCount < MAX_RETRY_ATTEMPTS) {
-            let nextFailedUsers = [];
-
-            for (const user of failedUsers) {
-                try {
-                    console.log("Retry update/insert operation for user: ", user)
-                    await handleUsers(user, updateStatement)
-                } catch (err) {
-                    console.error("Retry error: ", err);
-                    nextFailedUsers.push(user);
-                }
-
-                await wait(retryCount * BACKOFF_TIME_MS);
-            }
-
-            failedUsers = nextFailedUsers;
-            if (failedUsers.length === 0) {
-                break;
-            }
-
-            retryCount++;
-        }
+        console.log("failedUsersarrr", failedUsers.flat(2))
 
         if (failedUsers.length > 0) {
-            failed.push(...failedUsers);
+            console.log("failedUsers.length", failedUsers.flat(2).length)
+            await retryFailed(failedUsers.flat(2))
+
         }
-
-
-        const dlqParams = {
-            MessageBody: JSON.stringify(failed.map((item) => {
-                return {userId: item.userId}
-            })),
-            QueueUrl: process.env.QUEUE_URL
-        };
-        await sqs.sendMessage(dlqParams).promise();
-        console.log("Failed users after all retries: ", failed);
 
     }
 
 
 };
-
+module.exports = {
+    handleUsers,
+    insertStatement,
+    updateStatement,
+    insertUsers,
+    updateUsers,
+    handler,
+    retryFailed
+}
 
 
 

@@ -43,6 +43,15 @@ provider:
       Resource:
         Fn::GetAtt: [ BulkScriptVitaliyJadexSqsQueue, Arn ]
 
+    - Effect: Allow
+      Action:
+        - "sqs:SendMessage"
+        - "sqs:ReceiveMessage"
+        - "sqs:DeleteMessage"
+        - "sqs:GetQueueAttributes"
+      Resource:
+        Fn::GetAtt: [ DeadLetterQueue, Arn ]
+
 
 resources:
   Resources:
@@ -104,6 +113,15 @@ functions:
       DYNAMODB_TABLE: !Ref UsersBulkScriptVitaliyJadex
       MAX_RETRY_ATTEMPTS: 3
       BACKOFF_TIME_MS: 2000
+      DLQ:
+        Fn::Join:
+          - ""
+          - - "https://sqs."
+            - Ref: AWS::Region
+            - ".amazonaws.com/"
+            - Ref: AWS::AccountId
+            - "/"
+            - Fn::GetAtt: [ DeadLetterQueue, QueueName ]
       QUEUE_URL:
         Fn::Join:
           - ""
