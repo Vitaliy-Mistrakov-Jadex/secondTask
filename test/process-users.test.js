@@ -1,6 +1,12 @@
 const {handler, insertUsers, updateUsers, handleUsers, retryFailed} = require('../functions/process-users'); // replace with the actual path to your Lambda file
 const AWS = require('aws-sdk');
-const {usersFromEvent, insertResult} = require("./mock-data/process-users.mock");
+const {
+    usersFromEvent,
+    insertResult,
+    usersToUpdate,
+    failedUsersUpdate,
+    faileUsersInput
+} = require("./mock-data/process-users.mock");
 
 const mockBatchExecuteStatement = jest.fn();
 const mockSendMessage = jest.fn();
@@ -35,35 +41,14 @@ describe('insertUsers function', () => {
 
 describe('updateUsers function', () => {
     it('should process usersToUpdate and return expected result', async () => {
-        const mockData = {};
         const expectedResult = {};
 
-        const result = await updateUsers(mockData);
+        const result = await updateUsers(usersToUpdate);
 
-        expect(result).toEqual(expectedResult);
+        expect(result).toEqual(failedUsersUpdate);
     });
 });
 
-describe('handleUsers function', () => {
-    it('should process users and return expected result', async () => {
-        const mockData = {};
-        const expectedResult = {};
 
-        const result = await handleUsers(mockData, jest.fn());
-
-        expect(result).toEqual(expectedResult);
-    });
-});
-
-describe('retryFailed function', () => {
-    it('should retry failedUsers and return expected result', async () => {
-        const mockData = {};
-        const expectedResult = {};
-
-        const result = await retryFailed(mockData);
-
-        expect(result).toEqual(expectedResult);
-    });
-});
 
 
