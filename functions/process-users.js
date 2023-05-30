@@ -127,6 +127,7 @@ const retryFailed = async (failedUsers) => {
             try {
                 // console.log("params.Statements--->", params.Statements)
                 const response = await dynamoDB.batchExecuteStatement(params).promise();
+                console.log("responsebatchExecuteStatement--->", response)
 
 
                 response.Responses.forEach((res, idx) => {
@@ -138,7 +139,9 @@ const retryFailed = async (failedUsers) => {
 
 
                 console.log("nextFailedUsers", nextFailedUsers)
-                await wait(retryCount * BACKOFF_TIME_MS);
+
+
+                //await wait(retryCount * BACKOFF_TIME_MS);//TODO
 
             } catch (err) {
                 console.error("err=-=-=-=-=-=-=-=-=", err);
