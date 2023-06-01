@@ -1,4 +1,11 @@
-const {handler, insertUsers, updateUsers, handleUsers, retryFailed} = require('../functions/process-users'); // replace with the actual path to your Lambda file
+const {
+    handler,
+    insertUsers,
+    updateUsers,
+    handleUsers,
+    retryFailed,
+    insertStatement
+} = require('../functions/process-users'); // replace with the actual path to your Lambda file
 const AWS = require('aws-sdk');
 const DynamoDB = new AWS.DynamoDB();
 const SQS = new AWS.SQS();
@@ -8,7 +15,7 @@ const {
     insertResult,
     usersToUpdate,
     failedUsersUpdate,
-    faileUsersInput, failedUpdatesRes, failedBatchRes, failedCreatesRes
+    faileUsersInput, failedUpdatesRes, failedBatchRes, failedCreatesRes, handleUsersInput
 } = require("./mock-data/process-users.mock");
 
 
@@ -188,3 +195,51 @@ describe('retryFailed function tests testing', () => {
     });
 
 });
+
+
+describe('handleUsers function tests testing', () => {
+    let mockBatchExecuteStatement;
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockBatchExecuteStatement = jest.requireMock('aws-sdk').DynamoDB().batchExecuteStatement;
+    });
+    describe('handleUsers function that returns success', () => {
+        it('should retry handleUsers', async () => {
+            mockBatchExecuteStatement.mockImplementation(() => (
+                {
+                    promise: jest.fn().mockResolvedValue({
+                        Responses: faileUsersInput.map((item) => {
+                            return {userId: 'some uuid'};
+                        }),
+                    }),
+                }));
+            await handleUsers(handleUsersInput, insertStatement);
+            expect(mockBatchExecuteStatement).toHaveBeenCalledTimes(1);
+
+        });
+    });
+
+
+    describe('handleUsers function when each request are failed', () => {
+
+        it('should retry handleUsers', async () => {
+            mockBatchExecuteStatement.mockImplementation(() => ({
+                promise: jest.fn().mockResolvedValue({
+                    Responses: faileUsersInput.map((item) => {
+                        return {
+                            Error: {
+                                Code: 'someError'
+                            }
+
+                        }
+                    })
+                }),
+            }));
+            await handleUsers(handleUsersInput, insertStatement);
+            expect(mockBatchExecuteStatement).toHaveBeenCalledTimes(1);
+
+        });
+    });
+
+});
+
