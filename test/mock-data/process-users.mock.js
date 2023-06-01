@@ -53,7 +53,55 @@ const faileUsersInput = [
 
 
 const failedUsersUpdate = {"failedUpdate": [[]]}
+
+
+const failedUpdatesRes = {
+    failedUpdate: [
+        [
+            {
+                statement: updateStatement,
+                userData: {
+                    field: "OptedInThirtyDaysCancellation",
+                    userId: "7081a863-ea3c-4e15-89b9-a078e3aafd0f",
+                    value: false,
+                },
+            },
+            {
+                statement: updateStatement,
+                userData: {
+                    field: "OptedInThirtyDaysCancellation",
+                    userId: "7081a863-ea3c-4e15-89b9-a078e3aafd10",
+                    value: false,
+                },
+            },
+        ],
+    ],
+}
+
+
+const failedCreatesRes = [
+    {
+        statement: insertStatement,
+        userData: {
+            field: "OptedInThirtyDaysCancellation",
+            userId: "7081a863-ea3c-4e15-89b9-a078e3aafd0f",
+            value: false,
+        },
+    },
+    {
+        statement: insertStatement,
+        userData: {
+            field: "OptedInThirtyDaysCancellation",
+            userId: "7081a863-ea3c-4e15-89b9-a078e3aafd10",
+            value: false,
+        },
+    },
+]
+
+
 module.exports = {
+    failedCreatesRes,
+    failedUpdatesRes,
     insertResult,
     usersFromEvent,
     usersToUpdate,

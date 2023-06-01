@@ -26,6 +26,7 @@ const handleUsers = async (users, statement) => {
         try {
             console.log("params.Statements--->", params.Statements)
             const response = await dynamoDB.batchExecuteStatement(params).promise();
+            console.log("pararesponseresponseresponses--->", response)
 
             response.Responses.forEach((res, idx) => {
                 console.log("response.Responses.res", res)
@@ -34,6 +35,8 @@ const handleUsers = async (users, statement) => {
                     usersToUpdate.push(chunk[idx]);
                 }
                 if (res.Error && res.Error.Code !== 'DuplicateItem') {
+                    console.log("response.Responses.resssss", res.Error)
+
                     failedUsers.push({
                         userData: chunk[idx],
                         statement: statement
@@ -99,6 +102,8 @@ const updateUsers = async (usersToUpdate) => {
         failedUpdate.push(result.failedUsers)
 
     }
+
+    console.log("failedUpdatefff", failedUpdate)
     return {
         failedUpdate
     }
@@ -125,7 +130,7 @@ const retryFailed = async (failedUsers) => {
             };
 
             try {
-                // console.log("params.Statements--->", params.Statements)
+                //   console.log("dynamoDB.batchExecuteStatement-->", dynamoDB.batchExecuteStatement)
                 const response = await dynamoDB.batchExecuteStatement(params).promise();
                 console.log("responsebatchExecuteStatement--->", response)
 

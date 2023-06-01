@@ -8,34 +8,16 @@ const {
     insertResult,
     usersToUpdate,
     failedUsersUpdate,
-    faileUsersInput
+    faileUsersInput, failedUpdatesRes, failedBatchRes, failedCreatesRes
 } = require("./mock-data/process-users.mock");
 
 
 jest.mock('aws-sdk', () => {
+    const mockBatchExecuteStatement = jest.fn();
     return {
-        DynamoDB: jest.fn().mockImplementation(() => {
-            return {
-                batchExecuteStatement: jest.fn().mockImplementation((x) => {
-                    console.log("jest.fn().mockImplementation(", x)
-                    return {
-                        promise: jest.fn(() => {
-                            return Promise.resolve({
-                                Responses: x.Statements.map((item) => {
-                                    return {
-                                        Error: {
-                                            Code: 'someError'
-                                        }
-
-                                    }
-                                })
-                            })
-                        })
-
-                    };
-                }),
-            };
-        }),
+        DynamoDB: jest.fn(() => ({
+            batchExecuteStatement: mockBatchExecuteStatement,
+        })),
 
 
         SQS: jest.fn().mockImplementation(() => {
@@ -52,49 +34,157 @@ jest.mock('aws-sdk', () => {
 
 
 describe('insertUsers function', () => {
-    it('should process users and return expected result', async () => {
-        const mockData = usersFromEvent;
-        const failedUsers = insertResult.failedUsers;
-        const usersToUpdate = insertResult.usersToUpdate
+    let mockBatchExecuteStatement;
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockBatchExecuteStatement = jest.requireMock('aws-sdk').DynamoDB().batchExecuteStatement;
+    });
+    describe('insertUsers fail', () => {
 
-        const result = await insertUsers(mockData);
+        it('should process users and return expected result', async () => {
+            mockBatchExecuteStatement.mockImplementation((x) => {
+                console.log(x, "mockImplem")
+                return {
+                    promise: jest.fn().mockResolvedValue({
+                        Responses: x.Statements.map(() => {
+                            return {Error: {Code: 'some error'}}
+                        })
+                    })
+                }
+            });
 
-        expect(result.failedUsers).toEqual(failedUsers);
-        expect(result.usersToUpdate).toEqual(usersToUpdate);
+            const mockData = usersFromEvent;
+            const failedUsers = insertResult.failedUsers;
+            const usersToUpdate = insertResult.usersToUpdate
+
+            const result = await insertUsers(mockData);
+
+
+            expect(result.failedUsers).toEqual(failedCreatesRes);
+            expect(result.usersToUpdate).toEqual([]);
+        });
+    });
+    describe('insertUsers success', () => {
+
+        it('should process users and return expected result', async () => {
+            mockBatchExecuteStatement.mockImplementation((x) => {
+                console.log(x, "mockImplem")
+                return {
+                    promise: jest.fn().mockResolvedValue({
+                        Responses: x.Statements.map(() => {
+                            return {TableName: 'UsersBulkScriptVitaliyJadex'}
+                        })
+                    })
+                }
+            });
+            const mockData = usersFromEvent;
+            const failedUsers = insertResult.failedUsers;
+            const usersToUpdate = insertResult.usersToUpdate
+
+            const result = await insertUsers(mockData);
+
+            expect(result.failedUsers).toEqual(failedUsers);
+            expect(result.usersToUpdate).toEqual(usersToUpdate);
+        });
     });
 });
 
 describe('updateUsers function', () => {
-    it('should process usersToUpdate and return expected result', async () => {
-        const expectedResult = {};
-
-        const result = await updateUsers(usersToUpdate);
-
-        expect(result).toEqual(failedUsersUpdate);
+    let mockBatchExecuteStatement;
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockBatchExecuteStatement = jest.requireMock('aws-sdk').DynamoDB().batchExecuteStatement;
     });
+    describe('all users successfully update function', () => {
+
+        it('should process usersToUpdate and return expected result', async () => {
+
+            mockBatchExecuteStatement.mockImplementation((x) => {
+                console.log(x, "mockImplem")
+                return {
+                    promise: jest.fn().mockResolvedValue({
+                        Responses: x.Statements.map(() => {
+                            return {TableName: 'UsersBulkScriptVitaliyJadex'}
+                        })
+                    })
+                }
+            });
+            const result = await updateUsers(usersToUpdate);
+            expect(mockBatchExecuteStatement).toHaveBeenCalledTimes(1);
+
+            expect(result).toEqual({"failedUpdate": [[]]});
+
+        });
+    });
+
+
+    describe('all users successfully update function', () => {
+
+        it('should process usersToUpdate and return expected result', async () => {
+
+            mockBatchExecuteStatement.mockImplementation((x) => {
+                console.log(x, "mockImplem")
+                return {
+                    promise: jest.fn().mockResolvedValue({
+                        Responses: x.Statements.map(() => {
+                            return {Error: {Code: 'some error'}}
+
+                        })
+                    })
+                }
+            });
+            const result = await updateUsers(usersToUpdate);
+            expect(mockBatchExecuteStatement).toHaveBeenCalledTimes(1);
+
+            expect(result).toEqual(failedUpdatesRes);
+        });
+    });
+
 });
 
 
-describe('retryFailed function', () => {
+describe('retryFailed function tests testing', () => {
+    let mockBatchExecuteStatement;
     beforeEach(() => {
         jest.clearAllMocks();
+        mockBatchExecuteStatement = jest.requireMock('aws-sdk').DynamoDB().batchExecuteStatement;
     });
-
-    it('should retry failedUsers', async () => {
-        // Redefine the batchExecuteStatement mock implementation
-        AWS.DynamoDB.mockImplementation(() => ({
-            batchExecuteStatement: jest.fn().mockImplementation(() => {
-                return {
+    describe('retryFailed function that returns success', () => {
+        it('should retry failedUsers', async () => {
+            mockBatchExecuteStatement.mockImplementation(() => (
+                {
                     promise: jest.fn().mockResolvedValue({
                         Responses: faileUsersInput.map((item) => {
-                            return {userId: 'sssss'};
+                            return {userId: 'some uuid'};
                         }),
                     }),
-                };
-            }),
-        }));
+                }));
+            await retryFailed(faileUsersInput);
+            expect(mockBatchExecuteStatement).toHaveBeenCalledTimes(1);
 
-        await retryFailed(faileUsersInput);
-        // add your expectations here
+        });
     });
+
+
+    describe('retryFailed function when each request are failed', () => {
+
+        it('should retry failedUsers', async () => {
+            mockBatchExecuteStatement.mockImplementation(() => ({
+                promise: jest.fn().mockResolvedValue({
+                    Responses: faileUsersInput.map((item) => {
+                        return {
+                            Error: {
+                                Code: 'someError'
+                            }
+
+                        }
+                    })
+                }),
+            }));
+            await retryFailed(faileUsersInput);
+            expect(mockBatchExecuteStatement).toHaveBeenCalledTimes(3);
+
+        });
+    });
+
 });
