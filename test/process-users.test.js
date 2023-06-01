@@ -38,14 +38,15 @@ jest.mock('aws-sdk', () => {
         }),
     };
 });
+let mockBatchExecuteStatement;
+beforeEach(() => {
+    jest.clearAllMocks();
+    mockBatchExecuteStatement = jest.requireMock('aws-sdk').DynamoDB().batchExecuteStatement;
+});
 
 
 describe('insertUsers function', () => {
-    let mockBatchExecuteStatement;
-    beforeEach(() => {
-        jest.clearAllMocks();
-        mockBatchExecuteStatement = jest.requireMock('aws-sdk').DynamoDB().batchExecuteStatement;
-    });
+
     describe('insertUsers fail', () => {
 
         it('should process users and return expected result', async () => {
@@ -97,11 +98,7 @@ describe('insertUsers function', () => {
 });
 
 describe('updateUsers function', () => {
-    let mockBatchExecuteStatement;
-    beforeEach(() => {
-        jest.clearAllMocks();
-        mockBatchExecuteStatement = jest.requireMock('aws-sdk').DynamoDB().batchExecuteStatement;
-    });
+
     describe('all users successfully update function', () => {
 
         it('should process usersToUpdate and return expected result', async () => {
@@ -151,11 +148,7 @@ describe('updateUsers function', () => {
 
 
 describe('retryFailed function tests testing', () => {
-    let mockBatchExecuteStatement;
-    beforeEach(() => {
-        jest.clearAllMocks();
-        mockBatchExecuteStatement = jest.requireMock('aws-sdk').DynamoDB().batchExecuteStatement;
-    });
+
     describe('retryFailed function that returns success', () => {
         it('should retry failedUsers', async () => {
             mockBatchExecuteStatement.mockImplementation(() => (
@@ -198,11 +191,7 @@ describe('retryFailed function tests testing', () => {
 
 
 describe('handleUsers function tests testing', () => {
-    let mockBatchExecuteStatement;
-    beforeEach(() => {
-        jest.clearAllMocks();
-        mockBatchExecuteStatement = jest.requireMock('aws-sdk').DynamoDB().batchExecuteStatement;
-    });
+
     describe('handleUsers function that returns success', () => {
         it('should retry handleUsers', async () => {
             mockBatchExecuteStatement.mockImplementation(() => (
