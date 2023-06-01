@@ -61,7 +61,7 @@ describe('insertUsers function', () => {
 
 
             expect(result.failedUsers).toEqual(failedCreatesRes);
-            expect(result.usersToUpdate).toEqual([]);
+            expect(result.usersToUpdate).toEqual([[]]);
         });
     });
     describe('insertUsers success', () => {

@@ -79,7 +79,7 @@ const failedUpdatesRes = {
 }
 
 
-const failedCreatesRes = [
+const failedCreatesRes = [[
     {
         statement: insertStatement,
         userData: {
@@ -96,7 +96,7 @@ const failedCreatesRes = [
             value: false,
         },
     },
-]
+]]
 
 
 module.exports = {

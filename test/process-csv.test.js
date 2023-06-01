@@ -1,6 +1,11 @@
 const handler = require('../functions/process-csv');
 const {readCsvFromS3, validateArray, sendItemsToSqs} = require('../functions/process-csv');
-const {validItems, outputReadFromCsv, validatedItems} = require("./mock-data/process-ssv.mock");
+const {
+    validItems,
+    outputReadFromCsv,
+    validatedItems,
+    invalidOutputReadFromCsv, invalidUserAccountId
+} = require("./mock-data/process-ssv.mock");
 //const {jest} = require('@jest/globals');
 
 jest.mock('aws-sdk', () => {
@@ -31,15 +36,21 @@ describe('Testing the lambda functions', () => {
         expect(result).toEqual([]);
     });
 
+
+});
+
+
+describe('Testing the lambda functions', () => {
+
     test('validateArray should validate the array of items', () => {
         const result = validateArray(outputReadFromCsv);
 
         expect(result).toEqual(validatedItems);
     });
 
-    test('sendItemsToSqs should send items to SQS', async () => {
+    test('validateArray should validate the array of items', () => {
+        const result = validateArray(invalidOutputReadFromCsv);
 
-
+        expect(result).toEqual(invalidUserAccountId);
     });
-
 });
