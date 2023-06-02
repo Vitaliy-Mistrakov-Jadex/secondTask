@@ -45,19 +45,25 @@ beforeEach(() => {
 });
 
 
+const successfulBachResult = (x) => jest.fn().mockResolvedValue({
+    Responses: x.Statements.map(() => {
+        return {TableName: 'UsersBulkScriptVitaliyJadex'}
+    })
+})
+const unsuccessfulBachResult = (x) => jest.fn().mockResolvedValue({
+    Responses: x.Statements.map(() => {
+        return {Error: {Code: 'some error'}}
+    })
+})
+
 describe('insertUsers function', () => {
 
     describe('insertUsers fail', () => {
 
         it('should process users and return expected result', async () => {
             mockBatchExecuteStatement.mockImplementation((x) => {
-                console.log(x, "mockImplem")
                 return {
-                    promise: jest.fn().mockResolvedValue({
-                        Responses: x.Statements.map(() => {
-                            return {Error: {Code: 'some error'}}
-                        })
-                    })
+                    promise: unsuccessfulBachResult(x)
                 }
             });
 
@@ -76,13 +82,8 @@ describe('insertUsers function', () => {
 
         it('should process users and return expected result', async () => {
             mockBatchExecuteStatement.mockImplementation((x) => {
-                console.log(x, "mockImplem")
                 return {
-                    promise: jest.fn().mockResolvedValue({
-                        Responses: x.Statements.map(() => {
-                            return {TableName: 'UsersBulkScriptVitaliyJadex'}
-                        })
-                    })
+                    promise: successfulBachResult(x)
                 }
             });
             const mockData = usersFromEvent;
@@ -104,13 +105,8 @@ describe('updateUsers function', () => {
         it('should process usersToUpdate and return expected result', async () => {
 
             mockBatchExecuteStatement.mockImplementation((x) => {
-                console.log(x, "mockImplem")
                 return {
-                    promise: jest.fn().mockResolvedValue({
-                        Responses: x.Statements.map(() => {
-                            return {TableName: 'UsersBulkScriptVitaliyJadex'}
-                        })
-                    })
+                    promise: successfulBachResult(x)
                 }
             });
             const result = await updateUsers(usersToUpdate);
@@ -122,19 +118,13 @@ describe('updateUsers function', () => {
     });
 
 
-    describe('all users successfully update function', () => {
+    describe('all users return error', () => {
 
-        it('should process usersToUpdate and return expected result', async () => {
+        it('should process usersToUpdate and return error', async () => {
 
             mockBatchExecuteStatement.mockImplementation((x) => {
-                console.log(x, "mockImplem")
                 return {
-                    promise: jest.fn().mockResolvedValue({
-                        Responses: x.Statements.map(() => {
-                            return {Error: {Code: 'some error'}}
-
-                        })
-                    })
+                    promise: unsuccessfulBachResult(x)
                 }
             });
             const result = await updateUsers(usersToUpdate);
@@ -196,11 +186,8 @@ describe('handleUsers function tests testing', () => {
         it('should retry handleUsers', async () => {
             mockBatchExecuteStatement.mockImplementation(() => (
                 {
-                    promise: jest.fn().mockResolvedValue({
-                        Responses: faileUsersInput.map((item) => {
-                            return {userId: 'some uuid'};
-                        }),
-                    }),
+                    promise: successfulBachResult(faileUsersInput)
+
                 }));
             await handleUsers(handleUsersInput, insertStatement);
             expect(mockBatchExecuteStatement).toHaveBeenCalledTimes(1);
@@ -213,16 +200,7 @@ describe('handleUsers function tests testing', () => {
 
         it('should retry handleUsers', async () => {
             mockBatchExecuteStatement.mockImplementation(() => ({
-                promise: jest.fn().mockResolvedValue({
-                    Responses: faileUsersInput.map((item) => {
-                        return {
-                            Error: {
-                                Code: 'someError'
-                            }
-
-                        }
-                    })
-                }),
+                promise: unsuccessfulBachResult(faileUsersInput)
             }));
             await handleUsers(handleUsersInput, insertStatement);
             expect(mockBatchExecuteStatement).toHaveBeenCalledTimes(1);
