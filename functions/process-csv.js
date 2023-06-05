@@ -1,11 +1,10 @@
 const AWS = require('aws-sdk');
-const dynamoDB = new AWS.DynamoDB.DocumentClient();
 const s3 = new AWS.S3();
 const csvtojson = require('csvtojson');
 const Joi = require('joi');
 const sqs = new AWS.SQS();
 
-module.exports.handler = async (event, ctx, callback) => {
+const handler = async (event, ctx, callback) => {
     const s3Record = event.Records[0].s3;
     const bucketName = s3Record.bucket.name;
     const objectKey = s3Record.object.key;
@@ -19,11 +18,13 @@ module.exports.handler = async (event, ctx, callback) => {
     try {
 
         const json = await readCsvFromS3(s3Params)
-
-        console.log(' validateArray(json)', validateArray(json));
+        console.log('json', json);
 
 
         const validatedItems = validateArray(json)
+
+        console.log(' validateArray(json)', validatedItems);
+
 
         const invalidItems = validatedItems.filter((item) => item.error);
         console.log('Invalid items:', invalidItems);
@@ -48,6 +49,7 @@ module.exports.handler = async (event, ctx, callback) => {
 
 const readCsvFromS3 = async (params) => {
     const {Body} = await s3.getObject(params).promise();
+    console.log("Body", Body)
     return csvtojson().fromString(Body.toString());
 };
 
@@ -75,31 +77,70 @@ const validateArray = (arr) => {
 
 }
 
+
 const sendItemsToSqs = async (items) => {
+    let successCount = 0;
+    const messageBatchSize = 50
+    const awsBatchSize = 10
 
 
-    for (let i = 0; i < items.length;) {
-        let params = {
+    items = items.map((item) => {
+        return {
+
+            userId: item.item.UserAccountId,
+            field: 'OptedInThirtyDaysCancellation',
+            value: false
+        }
+    })
+
+    const messageBatches = chunk(items, messageBatchSize); // масиви чанків масивів
+
+
+    console.log("messageBatches[]----->", messageBatches[0])
+    console.log("messageBatches----->", messageBatches)
+
+    const sqsMessagePayloads = messageBatches.map((batch, index) => {
+        console.log("batch----->", batch)
+        return {
+            Id: index.toString(),
+            MessageBody: JSON.stringify(batch),
+        }
+
+    });
+    console.log("sqsMessagePayloads---->>>", sqsMessagePayloads)
+
+
+    for (let sqsBatchPayload of chunk(sqsMessagePayloads, awsBatchSize)) {
+        const params = {
             QueueUrl: process.env.SQS_QUEUE_URL,
-            Entries: [],
-        };
-
-        for (let j = 0; j < 10 && i < items.length; j++, i++) {
-            params.Entries.push({
-                Id: i.toString(),
-                MessageBody: JSON.stringify({
-                    userId: items[i].item.UserAccountId,
-                    field: 'OptedInThirtyDaysCancellation',
-                    value: items[i].item.Preferences.OptedInThirtyDaysCancellation,
-                }),
-            });
+            Entries: sqsBatchPayload,
         }
 
         console.log("sqs.sendMessageBatch(params).+++++", params.Entries);
 
-        await sqs.sendMessageBatch(params).promise();
-    }
+        try {
+            await sqs.sendMessageBatch(params).promise();
 
+        } catch (e) {
+            console.error('Error sending SQS batch', e);
+
+        }
+    }
 
 };
 
+const chunk = (array, size) => {
+    let results = [];
+    while (array.length) {
+        results.push(array.splice(0, size));
+    }
+    return results;
+};
+
+module.exports = {
+    readCsvFromS3,
+    validateArray,
+    sendItemsToSqs,
+    handler
+    // the rest of your functions
+}
